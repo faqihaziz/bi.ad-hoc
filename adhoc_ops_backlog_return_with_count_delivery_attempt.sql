@@ -6,6 +6,39 @@ SELECT
   -- FORMAT_DATE("%b %Y", DATE(ww.shipping_time,'Asia/Jakarta')) AS month,
   DATETIME(ww.shipping_time,'Asia/Jakarta') shipping_time,
   sr.option_name AS waybill_source,
+
+  CASE
+    -- WHEN t0.option_name IN ('VIP Customer Portal') AND mp.vip_username IS NOT NULL THEN "VIP AMP"
+    WHEN sr.option_name IN ("arveoli",
+"Baleomol",
+"Berdu",
+"BiteShip",
+"BukaSend",
+"Clodeo",
+"pt clodeo indonesia jaya",
+"diorderin",
+"eBelanja",
+"everpro",
+"IdeJualan",
+"KiriminAja",
+"MauLagi",
+"Mengantar",
+"Oexpress",
+"OrderOnline",
+"pt admin cerdas indonesia",
+"pt multi kurir digital",
+"pt auto serba digital",
+"Komerce",
+"pt usaha logistik indonesia",
+"Hadid",
+"PT. Auto Serba",
+"Juragan COD",
+"Ngorder",
+"Jubelio",
+"Lincah.id") THEN "Aggregator"
+    ELSE NULL
+    END AS source_category,
+
   ww.parent_shipping_cleint vip_username,
   ww.sender_name,
   ww.sender_cellphone,
@@ -20,15 +53,23 @@ SELECT
   st.option_name AS service_type,
   kw.kanwil_name AS kanwil_name_regist,
 
+  t4.division AS D_Source,
+t4.sales_name AS Sales_Name_Source,
+t5.division AS D_Seller, 
+t5.sales_name AS Sales_Name_Seller,
+
     FROM `datawarehouse_idexp.waybill_waybill` ww
 left join `grand-sweep-324604.datawarehouse_idexp.system_option` sr on ww.waybill_source  = sr.option_value and sr.type_option = 'waybillSource'
 left join `grand-sweep-324604.datawarehouse_idexp.system_option` et on ww.express_type  = et.option_value and et.type_option = 'expressType'
 left join `grand-sweep-324604.datawarehouse_idexp.system_option` st on ww.service_type  = st.option_value and st.type_option = 'serviceType'
 LEFT JOIN `datamart_idexp.mapping_kanwil_area` kw ON ww.recipient_province_name = kw.province_name
+LEFT JOIN `datamart_idexp.masterdata_sales_source` t4 ON t4.source = sr.option_name
+LEFT JOIN `datamart_idexp.masterdata_sales_seller_vip` t5 ON t5.seller_name = vip_customer_name
 
 WHERE DATE(ww.update_time,'Asia/Jakarta') BETWEEN '2023-08-01' AND '2023-10-31' -->= DATE(DATE_ADD(CURRENT_DATE(), INTERVAL -62 DAY))
 AND DATE(ww.shipping_time,'Asia/Jakarta') BETWEEN '2023-08-01' AND '2023-10-31'
 AND ww.void_flag = '0' AND ww.deleted= '0'
+--AND sr.option_name IN ('VIP Customer Portal')
 
 QUALIFY ROW_NUMBER() OVER (PARTITION BY ww.waybill_no ORDER BY ww.update_time DESC)=1
 ),
@@ -175,7 +216,14 @@ ww.waybill_no,
 ww.waybill_alias,
 ww.shipping_time,
 ww.waybill_source,
+CASE
+    WHEN (ww.D_Seller NOT IN ('Soscom', 'Ecommerce', 'Principal') OR ww.D_Source NOT IN ('Ecommerce', 'Principal')) AND ww.Sales_Name_Source IN ('Soscom','HO','Mitra') AND ww.Sales_Name_Seller IS NULL THEN "VIP AMP"
+    ELSE ww.source_category END AS source_category,
 ww.vip_username,
+ww.D_Source,
+ww.Sales_Name_Source,
+ww.D_Seller,
+ww.Sales_Name_Seller,
 ww.sender_name,
 ww.sender_cellphone,
 ww.sender_province_name,
@@ -234,6 +282,14 @@ SELECT
 waybill_no,
 DATE(shipping_time) shipping_date,
 waybill_source,
+CASE 
+  WHEN source_category IS NULL THEN "VIP Portal HO"
+  ELSE source_category END AS source_category,
+vip_username,
+-- D_Source,
+-- Sales_Name_Source,
+-- D_Seller,
+-- Sales_Name_Seller,
 sender_name,
 sender_province_name,
 sender_city_name,
